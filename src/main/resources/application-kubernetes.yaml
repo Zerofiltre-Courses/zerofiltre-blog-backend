@@ -16,12 +16,10 @@ logging:
       zalando.logbook: TRACE
       hibernate:
         SQL: ${LOGGING_LEVEL_ORG_HIBERNATE_SQL}
-      springframework:
-        web: ${LOGGING_LEVEL_ORG_SPRINGFRAMEWORK}
     tech:
       zerofiltre: ${LOGGING_LEVEL_TECH_ZEROFILTRE}
 server:
-  port: ${SERVER_PORT}
+  port: ${SERVER_PORT :noneed}
 
 logbook:
   write.max-body-size: 50
@@ -54,7 +52,7 @@ bucket4j:
 
 spring:
   liquibase:
-    change-log: ${SPRING_LIQUIBASE_CHANGELOG}
+    change-log: ${SPRING_LIQUIBASE_CHANGELOG:noneed}
   mvc:
     log-request-details: true
   mail:
