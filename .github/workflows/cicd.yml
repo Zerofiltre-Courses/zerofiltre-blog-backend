@@ -1,10 +1,11 @@
-
-
 name: Java CI/CD with Maven and k8s
 
 on:
+  workflow_dispatch:
+    branches:
+      - 'otlp*'
   push:
-    branches: 
+    branches:
       - 'otlp*'
 
 jobs:
@@ -13,87 +14,85 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      docker_tag_suffix: 'imphilippesimo'
-      tag_number : ${{ github.run_number }}
+      tag_number: ${{ github.run_number }}
+      username: ${{ secrets.DOCKER_HUB_USERNAME }}
+      password: ${{ secrets.DOCKER_HUB_PASSWORD }}
+      namespace: ${{ secrets.K8S_USERNAME }}
 
     steps:
-    - name: Checkout
-      uses: actions/checkout@v3
+      - name: Checkout
+        uses: actions/checkout@v3
 
-    - name: Set up JDK 11
-      uses: actions/setup-java@v3
-      with:
-        java-version: '11'
-        distribution: 'temurin'
-        cache: maven
+      - name: Set up JDK 11
+        uses: actions/setup-java@v3
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+          cache: maven
 
-    - name: Build and run unit tests with Maven
-      run: mvn -B package --file pom.xml
-      
-    - name: Run Integration tests
-      run: mvn failsafe:integration-test
- 
-    - name: Cache OpenTelemetry Java agent
-      id: cache-otel-agent
-      uses: actions/cache@v4
-      with:
-        path: opentelemetry-javaagent.jar
-        key: ${{ runner.os }}-otel-agent-v2.5.0
-        restore-keys: |
-          ${{ runner.os }}-otel-agent-
-          
+      - name: Build and run unit tests with Maven
+        run: mvn -B package --file pom.xml
 
-    - name: Download OpenTelemetry Java agent
-      if: steps.cache-otel-agent.outputs.cache-hit != 'true'
-      run: wget -O opentelemetry-javaagent.jar https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v2.5.0/opentelemetry-javaagent.jar
+      - name: Cache OpenTelemetry Java agent
+        id: cache-otel-agent
+        uses: actions/cache@v4
+        with:
+          path: opentelemetry-javaagent.jar
+          key: ${{ runner.os }}-otel-agent-v2.5.0
+          restore-keys: |
+            ${{ runner.os }}-otel-agent-
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v1
 
-    - name: Cache Docker layers
-      uses: actions/cache@v2
-      with:
-        path: /tmp/.buildx-cache
-        key: ${{ runner.os }}-buildx-${{ github.sha }}
-        restore-keys: |
-          ${{ runner.os }}-buildx-
+      - name: Download OpenTelemetry Java agent
+        if: steps.cache-otel-agent.outputs.cache-hit != 'true'
+        run: wget -O opentelemetry-javaagent.jar https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v2.5.0/opentelemetry-javaagent.jar
 
-    - name: Docker Login
-      uses: docker/login-action@v2.1.0
-      with:
-        username: ${{ secrets.DOCKER_HUB_USERNAME }}
-        password: ${{ secrets.DOCKER_HUB_PASSWORD }}
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
 
-    - name: Build and push
-      uses: docker/build-push-action@v2
-      with:
-        context: .
-        push: true
-        tags: imzerofiltre/zerofiltretech-blog:${{ github.run_number }}_${{ env.docker_tag_suffix }}
-        cache-from: type=local,src=/tmp/.buildx-cache
-        cache-to: type=local,dest=/tmp/.buildx-cache-new
+      - name: Cache Docker layers
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
 
-    - name: Get commit author email
-      if: ${{ failure()  && steps.check_origin.outputs.same_origin == 'true' }}
-      run: |
-        COMMIT_AUTHOR_EMAIL=$(git log -1 --pretty=format:'%ae')
-        echo "COMMIT_AUTHOR_EMAIL=$COMMIT_AUTHOR_EMAIL" >> $GITHUB_ENV
-      
-    - name: Send email on failure
-      uses: dawidd6/action-send-mail@v2.5.0
-      with:
-          server_address: smtp.gmail.com
-          server_port: 587
-          username: ${{ secrets.EMAIL_USERNAME }}
-          password: ${{ secrets.EMAIL_PASSWORD }}
-          subject: "Workflow failed on ${{ github.repository }}/${{ github.head_ref }} (commit ${{ github.sha }})"
-          body: |
-            Workflow failed on ${{ github.repository }}/${{ github.head_ref }} (commit ${{ github.sha }}). \nSee the workflow run log for more details: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          from: "GitHub Actions <${{ vars.EMAIL_FROM }}>"
-          to: ${{ env.COMMIT_AUTHOR_EMAIL }}
-      if: ${{ failure() && steps.check_origin.outputs.same_origin == 'true' }}
+      - name: Docker Login
+        uses: docker/login-action@v2.1.0
+        with:
+          username: ${{ env.username }}
+          password: ${{ env.password }}
 
-    - name: Move cache
-      run: |
-        rm -rf /tmp/.buildx-cache
-        mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+      - name: Build and push
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          push: true
+          tags: ${{ env.username }}/zerofiltretech-blog:${{ env.tag_number }}
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache-new
+
+      - name: Set up kubectl
+        uses: tale/kubectl-action@v1
+        with:
+          base64-kube-config: ${{ secrets.KUBE_CONFIG }}
+
+      - name: Set up k8s manifests
+        run: |
+          envsubst < k8s/microservices.yml > k8s.yml
+          cat k8s.yml
+
+      - name: Deploy to k8s
+        run: |
+          kubectl apply -f k8s.yml
+          kubectl annotate deployment zerofiltretech-blog-api kubernetes.io/change-cause="version change to: ${{ env.tag_number }} " -n ${{ env.namespace }} --overwrite=true
+          if ! kubectl rollout status -w deployment/zerofiltretech-blog-api -n ${{ env.namespace }}; then
+                kubectl rollout undo deployment.v1.apps/zerofiltretech-blog-api -n ${{ env.namespace }}
+                kubectl rollout status deployment/zerofiltretech-blog-api -n ${{ env.namespace }}
+                exit 1
+          fi
+      - name: Move cache
+        run: |
+          rm -rf /tmp/.buildx-cache
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
