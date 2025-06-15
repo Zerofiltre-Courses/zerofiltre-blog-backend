@@ -13,7 +13,6 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      docker_tag_suffix: 'imphilippesimo'
       tag_number : ${{ github.run_number }}
 
     steps:
@@ -51,7 +50,7 @@ jobs:
       uses: docker/setup-buildx-action@v1
 
     - name: Cache Docker layers
-      uses: actions/cache@v2
+      uses: actions/cache@v4
       with:
         path: /tmp/.buildx-cache
         key: ${{ runner.os }}-buildx-${{ github.sha }}
@@ -69,29 +68,9 @@ jobs:
       with:
         context: .
         push: true
-        tags: imzerofiltre/zerofiltretech-blog:${{ github.run_number }}_${{ env.docker_tag_suffix }}
+        tags: ${{ secrets.DOCKER_HUB_USERNAME }}/zerofiltretech-blog:${{ github.run_number }}
         cache-from: type=local,src=/tmp/.buildx-cache
         cache-to: type=local,dest=/tmp/.buildx-cache-new
-
-    - name: Get commit author email
-      if: ${{ failure()  && steps.check_origin.outputs.same_origin == 'true' }}
-      run: |
-        COMMIT_AUTHOR_EMAIL=$(git log -1 --pretty=format:'%ae')
-        echo "COMMIT_AUTHOR_EMAIL=$COMMIT_AUTHOR_EMAIL" >> $GITHUB_ENV
-      
-    - name: Send email on failure
-      uses: dawidd6/action-send-mail@v2.5.0
-      with:
-          server_address: smtp.gmail.com
-          server_port: 587
-          username: ${{ secrets.EMAIL_USERNAME }}
-          password: ${{ secrets.EMAIL_PASSWORD }}
-          subject: "Workflow failed on ${{ github.repository }}/${{ github.head_ref }} (commit ${{ github.sha }})"
-          body: |
-            Workflow failed on ${{ github.repository }}/${{ github.head_ref }} (commit ${{ github.sha }}). \nSee the workflow run log for more details: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          from: "GitHub Actions <${{ vars.EMAIL_FROM }}>"
-          to: ${{ env.COMMIT_AUTHOR_EMAIL }}
-      if: ${{ failure() && steps.check_origin.outputs.same_origin == 'true' }}
 
     - name: Move cache
       run: |
