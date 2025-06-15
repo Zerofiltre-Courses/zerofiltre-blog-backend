@@ -141,6 +141,7 @@ public class SecurityConfiguration extends WebSecurityConfigurerAdapter {
                         "/payment/cancel",
                         "/user/github/*",
                         "/reviews/**",
+                        "/enrollment/provision",
                         "/tips").permitAll()
                 .antMatchers("/anonymous*").anonymous()
                 .antMatchers("/v3/api-docs/**", "/swagger-ui.html", "/swagger-ui/**").permitAll()
