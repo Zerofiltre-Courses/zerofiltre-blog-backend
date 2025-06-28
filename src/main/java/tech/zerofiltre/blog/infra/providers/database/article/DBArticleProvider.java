@@ -1,5 +1,6 @@
 package tech.zerofiltre.blog.infra.providers.database.article;
 
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import lombok.RequiredArgsConstructor;
 import org.mapstruct.factory.Mappers;
 import org.springframework.cache.annotation.Cacheable;
@@ -47,6 +48,7 @@ public class DBArticleProvider implements ArticleProvider {
 
     @Override
     @Cacheable("articles-list")
+    @WithSpan
     public tech.zerofiltre.blog.domain.Page<Article> articlesOf(int pageNumber, int pageSize, Status status, long authorId, FinderRequest.Filter filter, String tag) {
         Page<ArticleJPA> page;
 

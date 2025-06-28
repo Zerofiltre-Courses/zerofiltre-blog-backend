@@ -1,8 +1,10 @@
 package tech.zerofiltre.blog.domain;
 
+import lombok.ToString;
 import tech.zerofiltre.blog.domain.article.model.*;
 import tech.zerofiltre.blog.domain.user.model.*;
 
+@ToString
 public class FinderRequest {
     private int pageNumber;
     private int pageSize;
