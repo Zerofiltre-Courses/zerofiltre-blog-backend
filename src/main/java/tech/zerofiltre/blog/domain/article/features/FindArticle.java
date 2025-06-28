@@ -1,5 +1,7 @@
 package tech.zerofiltre.blog.domain.article.features;
 
+import io.opentelemetry.instrumentation.annotations.SpanAttribute;
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import tech.zerofiltre.blog.domain.FinderRequest;
 import tech.zerofiltre.blog.domain.Page;
 import tech.zerofiltre.blog.domain.article.ArticleProvider;
@@ -12,6 +14,7 @@ import tech.zerofiltre.blog.domain.error.UnAuthenticatedActionException;
 import tech.zerofiltre.blog.domain.metrics.MetricsProvider;
 import tech.zerofiltre.blog.domain.metrics.model.CounterSpecs;
 import tech.zerofiltre.blog.domain.user.model.User;
+
 
 import static tech.zerofiltre.blog.domain.article.model.Status.PUBLISHED;
 
@@ -59,7 +62,8 @@ public class FindArticle {
 
     }
 
-    public Page<Article> of(FinderRequest request) throws ForbiddenActionException, UnAuthenticatedActionException {
+    @WithSpan
+    public Page<Article> of( @SpanAttribute FinderRequest request) throws ForbiddenActionException, UnAuthenticatedActionException {
         User user = request.getUser();
 
         //UNAUTHENTICATED USER TRYING TO GET NON PUBLISHED ARTICLES
