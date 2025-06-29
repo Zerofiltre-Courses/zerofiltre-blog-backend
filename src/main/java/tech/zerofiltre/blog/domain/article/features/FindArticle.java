@@ -2,6 +2,7 @@ package tech.zerofiltre.blog.domain.article.features;
 
 import io.opentelemetry.instrumentation.annotations.SpanAttribute;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
+import lombok.extern.slf4j.Slf4j;
 import tech.zerofiltre.blog.domain.FinderRequest;
 import tech.zerofiltre.blog.domain.Page;
 import tech.zerofiltre.blog.domain.article.ArticleProvider;
@@ -18,6 +19,7 @@ import tech.zerofiltre.blog.domain.user.model.User;
 
 import static tech.zerofiltre.blog.domain.article.model.Status.PUBLISHED;
 
+@Slf4j
 public class FindArticle {
 
     public static final String DOTS = "...";
@@ -63,7 +65,7 @@ public class FindArticle {
     }
 
     @WithSpan
-    public Page<Article> of( @SpanAttribute FinderRequest request) throws ForbiddenActionException, UnAuthenticatedActionException {
+    public Page<Article> of(@SpanAttribute FinderRequest request) throws ForbiddenActionException, UnAuthenticatedActionException {
         User user = request.getUser();
 
         //UNAUTHENTICATED USER TRYING TO GET NON PUBLISHED ARTICLES
@@ -82,7 +84,9 @@ public class FindArticle {
         }
 
         long authorId = request.isYours() ? request.getUser().getId() : 0;
-        return articleProvider.articlesOf(request.getPageNumber(), request.getPageSize(), request.getStatus(), authorId, request.getFilter(), request.getTag());
+        Page<Article> result = articleProvider.articlesOf(request.getPageNumber(), request.getPageSize(), request.getStatus(), authorId, request.getFilter(), request.getTag());
+        log.debug("We have finished retrieving articles");
+        return result;
 
     }
 }
