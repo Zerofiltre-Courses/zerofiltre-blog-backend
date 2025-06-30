@@ -31,5 +31,4 @@ public class InfraConfiguration {
                 .withCacheConfiguration("so-user",
                         RedisCacheConfiguration.defaultCacheConfig().entryTtl(Duration.ofMinutes(30)));
     }
-
 }
